@@ -3,8 +3,10 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
+	"gokube/pkg/api"
 	"gokube/pkg/registry"
 )
 
@@ -55,7 +57,20 @@ func (s *Scheduler) schedulePendingPods(ctx context.Context) error {
 		return fmt.Errorf("no nodes available for scheduling")
 	}
 
-	//Assignment 4: Complete the scheduler implementation.
-	_ = pods
+	// Simple round-robin scheduling
+	for _, pod := range pods {
+		// Select a node (simple round-robin)
+		selectedNode := nodes[rand.Intn(len(nodes))] // For simplicity, always choose the first node
+
+		// Update pod with node assignment
+		pod.NodeName = selectedNode.Name
+		pod.Status = api.PodScheduled
+
+		// Update the pod in registry
+		if err := s.podRegistry.UpdatePod(ctx, pod); err != nil {
+			return fmt.Errorf("failed to update pod %s: %v", pod.Name, err)
+		}
+	}
+
 	return nil
 }
