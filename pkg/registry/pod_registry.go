@@ -40,8 +40,32 @@ func (r *PodRegistry) generateKey(podName string) string {
 // It returns an error if the pod already exists or if the pod spec is invalid.
 // If the pod status is not set, it defaults to api.PodPending.
 func (r *PodRegistry) CreatePod(ctx context.Context, pod *api.Pod) error {
-	//Assignment 1: Implement CreatePod
-	return nil
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	// Validate Pod spec
+	if err := pod.Validate(); err != nil {
+		return fmt.Errorf("%w: %v", ErrPodInvalid, err)
+	}
+
+	// Set default status if not provided
+	if pod.Status == "" {
+		pod.Status = api.PodPending
+	}
+
+	key := r.generateKey(pod.Name)
+
+	// Check if pod already exists
+	existingPod := &api.Pod{}
+	err := r.storage.Get(ctx, key, existingPod)
+	if err == nil {
+		return fmt.Errorf("%w: %s", ErrPodAlreadyExists, pod.Name)
+	} else if !errors.Is(err, storage.ErrNotFound) {
+		return fmt.Errorf("%w: failed to check pod existence: %v", ErrInternal, err)
+	}
+
+	// Create the pod
+	return r.storage.Create(ctx, key, pod)
 }
 
 // GetPod retrieves a Pod by its name from the registry.

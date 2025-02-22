@@ -48,7 +48,21 @@ func (h *PodHandler) CreatePod(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	//Assignment2: Implement CreatePod handler.
+	// Set initial pod status to Pending
+	pod.Status = api.PodPending
+
+	// Create the pod in the registry
+	if err := h.podRegistry.CreatePod(request.Request.Context(), pod); err != nil {
+		switch {
+		case errors.Is(err, registry.ErrPodAlreadyExists):
+			api.WriteError(response, http.StatusConflict, err)
+		case errors.Is(err, registry.ErrPodInvalid):
+			api.WriteError(response, http.StatusBadRequest, err)
+		default:
+			api.WriteError(response, http.StatusInternalServerError, err)
+		}
+		return
+	}
 
 	api.WriteResponse(response, http.StatusCreated, pod)
 }
