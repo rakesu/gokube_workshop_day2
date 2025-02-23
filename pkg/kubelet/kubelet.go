@@ -113,8 +113,24 @@ func (k *Kubelet) runNewPods(pods []*api.Pod) error {
 }
 
 func (k *Kubelet) getPodAssignments() ([]*api.Pod, error) {
-	//Assignment 5: Get Pods assigned to this node.
-	return nil, nil
+	// Make HTTP GET request to API server to get pods assigned to this node
+	resp, err := http.Get("http://" + k.apiServerURL + "/api/v1/pods?nodeName=" + k.nodeName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod assignments: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get pod assignments, status code: %d", resp.StatusCode)
+	}
+
+	// Read and decode the response body
+	var pods []*api.Pod
+	if err := json.NewDecoder(resp.Body).Decode(&pods); err != nil {
+		return nil, fmt.Errorf("failed to decode pod assignments: %w", err)
+	}
+
+	return pods, nil
 }
 
 func (k *Kubelet) runPod(pod *api.Pod) {
@@ -352,6 +368,33 @@ func (k *Kubelet) updatePodStatuses() {
 }
 
 func (k *Kubelet) updatePodStatus(pod *api.Pod) error {
-	//Assignment 6: Update PodStatus with the APIServer.
+	// Create HTTP PUT request to API server to update pod status
+	url := fmt.Sprintf("http://%s/api/v1/pods/%s", k.apiServerURL, pod.Name)
+
+	// Marshal the pod to JSON
+	jsonData, err := json.Marshal(pod)
+	if err != nil {
+		return fmt.Errorf("failed to marshal pod data: %w", err)
+	}
+
+	// Create PUT request
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send request
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request to API server: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to update pod status, status code: %d", resp.StatusCode)
+	}
+
 	return nil
 }
